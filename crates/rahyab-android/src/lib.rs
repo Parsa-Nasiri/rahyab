@@ -27,8 +27,11 @@ fn rt() -> &'static tokio::runtime::Runtime {
     RT.get_or_init(|| {
         #[cfg(target_os = "android")]
         {
-            let _ = android_logger::once();
-            android_logger::config();
+            android_logger::init_once(
+                android_logger::Config::default()
+                    .with_tag("rahyab")
+                    .with_max_level(log::LevelFilter::Info),
+            );
         }
         tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
