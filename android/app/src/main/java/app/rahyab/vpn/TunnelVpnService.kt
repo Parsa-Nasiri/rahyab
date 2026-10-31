@@ -66,7 +66,7 @@ class TunnelVpnService : android.net.VpnService() {
                 // 0.0.0.0/0 via the two-route trick; LAN/loopback stay excluded.
                 .addRoute("0.0.0.0", 1)
                 .addRoute("128.0.0.0", 1)
-            val fd = builder.establish()?.detach()
+            val fd = builder.establish()?.detachFd()
             if (fd == null) {
                 Log.e(TAG, "establish() failed — VPN permission missing?")
                 stopVpn()
