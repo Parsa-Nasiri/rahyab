@@ -1,0 +1,42 @@
+name: CI (host tests + CLI)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+
+      # Core logic: transports, config parsing, Khorshid planner/racer, probe
+      # classification, hub hot-swap — the whole suite with WireGuard enabled.
+      - name: Unit tests
+        run: cargo test -p rahyab-core -p rahyab-cli --all-features
+
+      # The Android JNI crate must also type-check (unix path incl. tun_fd).
+      - name: Check Android JNI crate
+        run: cargo check -p rahyab-android
+
+      - name: Build CLI (combo-tester)
+        run: cargo build --release -p rahyab-cli
+
+      - name: Smoke test the CLI binary
+        run: ./target/release/rahyab --help
+
+      - name: Upload rahyab CLI (linux x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rahyab-cli-linux-x86_64
+          path: target/release/rahyab

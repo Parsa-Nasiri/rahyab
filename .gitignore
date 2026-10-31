@@ -1,0 +1,28 @@
+# Rust
+/target/
+**/*.rs.bk
+test-run.log
+rahyab_memory.json
+rahyab-matrix.json
+rahyab-alive-ips.txt
+rahyab-relay-response.txt
+rahyab.json
+
+# Android / Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/src/main/jniLibs/
+*.apk
+*.aab
+
+# Optional local AAR (fetched by CI or dropped in manually)
+android/app/libs/*.aar
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

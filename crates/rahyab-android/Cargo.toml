@@ -1,0 +1,18 @@
+[package]
+name = "rahyab-android"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Rahyab JNI core for Android: tun2proxy (TUN fd) + Khorshid engine + local hub"
+
+[lib]
+name = "rahyab"
+crate-type = ["cdylib"]
+
+[dependencies]
+rahyab-core = { path = "../rahyab-core" }
+tun2proxy = { version = "0.8", default-features = false, features = ["udpgw"] }
+jni = "0.21"
+tokio = { workspace = true }
+log = { workspace = true }
+android_logger = "0.14"

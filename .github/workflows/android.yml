@@ -1,0 +1,93 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Rust + Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+          key: android-${{ github.sha }}
+          cache-all-crates: true
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Install Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" "platforms;android-34" "build-tools;34.0.0" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      # Build the Rust core (librahyab.so) for all three Android ABIs and drop the
+      # outputs straight into jniLibs where Gradle packs them into the APK.
+      - name: Build Rust core for Android
+        run: |
+          cargo ndk \
+            -t arm64-v8a -t armeabi-v7a -t x86_64 \
+            -o android/app/src/main/jniLibs \
+            build --release -p rahyab-android
+
+      # OPTIONAL Psiphon: fetch the official prebuilt AAR if a release asset exists.
+      # Without it the app still builds (the Psiphon hop simply stays disabled).
+      - name: Fetch Psiphon AAR (optional)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p android/app/libs
+          URL=$(gh api "repos/Psiphon-Labs/psiphon-tunnel-core-binaries/releases" \
+            --jq '.[0].assets[].browser_download_url' 2>/dev/null | \
+            grep -i "android.*\.aar" | head -1 || true)
+          if [ -n "$URL" ]; then curl -L -o android/app/libs/ca.psiphon.aar "$URL"; fi
+          ls -la android/app/libs || true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+          cache-disabled: false
+
+      - name: Assemble debug APK
+        run: gradle -p android assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rahyab-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload release APK (unsigned, on tags)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: gradle -p android assembleRelease --no-daemon
+
+      - name: Upload release artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: rahyab-release-apk-unsigned
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
